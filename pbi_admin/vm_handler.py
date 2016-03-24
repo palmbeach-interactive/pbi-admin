@@ -11,7 +11,6 @@ VZ_CONFIG_PATH = '/etc/vz/conf/'
 CONFIG_PATH = '/Users/ohrstrom/Documents/Code/pbi/pbi-admin/dev/etc/'
 DEFAULT_IMAGE = '/storage/nfs/shared/vm/images/debian-8-base.tar'
 DEFAULT_STORAGE = 'nodes'
-BASE_IP = '10.11.1.'
 VZRESTORE_BINARY = '/usr/bin/vzrestore'
 VZ_DEFAULT_IFACE = 'en4'
 
@@ -27,13 +26,17 @@ class VMHandlerException(Exception):
 class VMHandler:
 
     def __init__(self, *args, **kwargs):
-        pass
+
+        print kwargs
+        conf = kwargs.get('conf')
+        self.vz_iface = conf.get('vz_iface', VZ_DEFAULT_IFACE)
+        self.base_image = conf.get('base_image', DEFAULT_IMAGE)
 
     def _exists(self, id):
         return os.path.isfile(os.path.join(VZ_CONFIG_PATH, '{}.conf'.format(id)))
 
-    def _base_ip(self, iface=VZ_DEFAULT_IFACE):
-        return netifaces.ifaddresses(iface)[netifaces.AF_INET][0].get('addr').split('.')
+    def _base_ip(self):
+        return netifaces.ifaddresses(self.vz_iface)[netifaces.AF_INET][0].get('addr').split('.')
 
 
     def create(self, *args, **kwargs):
@@ -41,6 +44,8 @@ class VMHandler:
         id = kwargs.get('id')
         if self._exists(id):
             raise VMHandlerException('vm #{} exists'.format(id))
+        if not os.path.exists(self.base_image):
+            raise VMHandlerException('image does not exist: {}'.format(self.base_image))
 
         if id < VM_MIN_ID or id > VM_MAX_ID:
             raise VMHandlerException('id out of accepted range [{}-{}]'.format(VM_MIN_ID, VM_MAX_ID))
@@ -59,15 +64,23 @@ class VMHandler:
         print ip
         print hostname
 
-
+        """
+        vzrestore /vm/base/debian_7.8.tar 109 -storage nodes
+        vzctl set 109 --hostname "node09.chumba" --save
+        vzctl set 109 --ipadd {} --save
+        vzctl set 109 --onboot yes --save
+        """
 
         commands = [
             '{} {} {} -storage={}'.format(
                 VZRESTORE_BINARY,
-                DEFAULT_IMAGE,
+                self.base_image,
                 id,
                 DEFAULT_STORAGE
             ),
+            'vzctl set {id} --hostname "{hostname}" --save'.format(id=id, hostname=hostname),
+            'vzctl set {id} --ipdel all --save'.format(id=id),
+            'vzctl set {id} --ipadd {ip} --save'.format(id=id, ip=ip),
         ]
 
         for command in commands:

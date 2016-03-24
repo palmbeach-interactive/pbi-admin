@@ -33,14 +33,14 @@ def vm():
         metavar='<action>',
         help='Action',
     )
-    # parser.add_argument(
-    #     '--config',
-    #     dest='config_file',
-    #     metavar='PATH',
-    #     help='Config file path',
-    #     default=os.path.expanduser('~/.pbi.cfg'),
-    #     required=False
-    # )
+    parser.add_argument(
+        '--config',
+        dest='config_file',
+        metavar='PATH',
+        help='Config file path',
+        default=os.path.expanduser('~/.pbi-admin.cfg'),
+        required=False
+    )
     parser.add_argument(
         '-i', '--id',
         dest='id',
@@ -52,12 +52,12 @@ def vm():
     args = parser.parse_args()
     args_dict = args.__dict__
 
-    # config_file = args_dict['config_file']
-    # if not os.path.isfile(config_file):
-    #     raise IOError('Unable to read config file: {}'.format(config_file))
-    #
-    # conf = ConfigObj(os.path.expanduser('~/.pbi.cfg'))
-    # args_dict['conf'] = conf
+    config_file = args_dict['config_file']
+    if not os.path.isfile(config_file):
+        raise IOError('Unable to read config file: {}'.format(config_file))
+
+    conf = ConfigObj(os.path.expanduser('~/.pbi-admin.cfg'))
+    args_dict['conf'] = conf
 
     action = args_dict['action']
 

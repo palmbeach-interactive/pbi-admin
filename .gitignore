@@ -1,0 +1,12 @@
+# ignore
+.DS_Store
+*.pyc
+.idea
+.tox
+.cache
+build
+dist
+env
+dev
+*egg-info
+*dev.cfg

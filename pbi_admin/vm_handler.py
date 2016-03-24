@@ -102,6 +102,11 @@ class VMHandler:
                     'vzctl set {id} --onboot yes --save'.format(id=id),
                 )
 
+            if prompt('start container?', default='n').lower() == 'y':
+                commands.append(
+                    'vzctl start {id}'.format(id=id),
+                )
+
             if prompt('open console?', default='n').lower() == 'y':
                 commands.append(
                     'vzctl enter {id}'.format(id=id),
@@ -113,4 +118,3 @@ class VMHandler:
             if not self.fake:
                 local(command)
 
-        

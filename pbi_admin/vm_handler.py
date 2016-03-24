@@ -58,8 +58,7 @@ class VMHandler:
                 for command in commands:
                     log.debug('running command: {}'.format(command))
                     if not self.fake:
-                        pass
-                        #local(command)
+                        local(command)
             else:
                 raise VMHandlerException('vm #{} exists'.format(id))
 
@@ -112,7 +111,6 @@ class VMHandler:
         for command in commands:
             log.debug('running command: {}'.format(command))
             if not self.fake:
-                pass
-                #local(command)
+                local(command)
 
-        pass
+        

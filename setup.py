@@ -57,7 +57,7 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'pbi_vm=pbi_admin:main',
+            'pbi_vm=pbi_admin:vm',
         ],
     },
 )

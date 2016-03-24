@@ -48,6 +48,20 @@ def vm():
         help='Node id',
         required=True
     )
+    parser.add_argument(
+        '-q', '--quiet',
+        dest='quiet',
+        help='No prompts',
+        action='store_true',
+        default=False
+    )
+    parser.add_argument(
+        '--fake',
+        dest='fake',
+        help='Dry run. Just pretend...',
+        action='store_true',
+        default=False
+    )
 
     args = parser.parse_args()
     args_dict = args.__dict__

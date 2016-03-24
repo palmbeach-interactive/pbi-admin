@@ -4,11 +4,12 @@ import os
 import logging
 import netifaces
 from fabric.api import local
+from fabric.operations import prompt
 from logging.config import fileConfig
 
 
 VZ_CONFIG_PATH = '/etc/vz/conf/'
-CONFIG_PATH = '/Users/ohrstrom/Documents/Code/pbi/pbi-admin/dev/etc/'
+#VZ_CONFIG_PATH = '/Users/ohrstrom/Documents/Code/pbi/pbi-admin/dev/etc/'
 DEFAULT_IMAGE = '/storage/nfs/shared/vm/images/debian-8-base.tar'
 DEFAULT_STORAGE = 'nodes'
 VZ_DEFAULT_IFACE = 'en4'
@@ -30,8 +31,12 @@ class VMHandler:
         conf = kwargs.get('conf')
         self.vz_iface = conf.get('vz_iface', VZ_DEFAULT_IFACE)
         self.base_image = conf.get('base_image', DEFAULT_IMAGE)
+        self.node_storage = conf.get('node_storage', DEFAULT_STORAGE)
+        self.quiet = kwargs.get('quiet', False)
+        self.fake = kwargs.get('fake', False)
 
     def _exists(self, id):
+
         return os.path.isfile(os.path.join(VZ_CONFIG_PATH, '{}.conf'.format(id)))
 
     def _base_ip(self):
@@ -42,7 +47,22 @@ class VMHandler:
 
         id = kwargs.get('id')
         if self._exists(id):
-            raise VMHandlerException('vm #{} exists'.format(id))
+
+            if prompt('vm #{} exists. DO YOU WANT TO DESTROY IT???'.format(id), default='n').lower() == 'y':
+
+                commands = [
+                    'vzctl stop {id}'.format(id=id),
+                    'vzctl destroy {id}'.format(id=id),
+                ]
+
+                for command in commands:
+                    log.debug('running command: {}'.format(command))
+                    if not self.fake:
+                        pass
+                        #local(command)
+            else:
+                raise VMHandlerException('vm #{} exists'.format(id))
+
         if not os.path.exists(self.base_image):
             raise VMHandlerException('image does not exist: {}'.format(self.base_image))
 
@@ -60,29 +80,39 @@ class VMHandler:
 
         hostname = 'node{}'.format(id)
 
-        print ip
-        print hostname
-
         """
-        vzrestore /vm/base/debian_7.8.tar 109 -storage nodes
-        vzctl set 109 --hostname "node09.chumba" --save
-        vzctl set 109 --ipadd {} --save
-        vzctl set 109 --onboot yes --save
+        vzrestore /tmp/slow_query.log 126 -storage=nodes
+        vzctl set 126 --hostname "node126" --save
+        vzctl set 126 --ipdel all --save
+        vzctl set 126 --ipadd 10.40.10.126 --save
+        vzctl set 126 --onboot yes --save
+        vzctl enter 126
         """
 
         commands = [
-            'vzrestore {} {} -storage={}'.format(
-                self.base_image,
-                id,
-                DEFAULT_STORAGE
-            ),
+            'vzrestore {} {} -storage={}'.format(self.base_image, id, self.node_storage),
             'vzctl set {id} --hostname "{hostname}" --save'.format(id=id, hostname=hostname),
             'vzctl set {id} --ipdel all --save'.format(id=id),
             'vzctl set {id} --ipadd {ip} --save'.format(id=id, ip=ip),
         ]
 
+        if not self.quiet:
+
+            if prompt('enable on-boot?', default='n').lower() == 'y':
+                commands.append(
+                    'vzctl set {id} --onboot yes --save'.format(id=id),
+                )
+
+            if prompt('open console?', default='n').lower() == 'y':
+                commands.append(
+                    'vzctl enter {id}'.format(id=id),
+                )
+
+
         for command in commands:
             log.debug('running command: {}'.format(command))
-            #local(command)
+            if not self.fake:
+                pass
+                #local(command)
 
         pass

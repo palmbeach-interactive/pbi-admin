@@ -11,7 +11,6 @@ VZ_CONFIG_PATH = '/etc/vz/conf/'
 CONFIG_PATH = '/Users/ohrstrom/Documents/Code/pbi/pbi-admin/dev/etc/'
 DEFAULT_IMAGE = '/storage/nfs/shared/vm/images/debian-8-base.tar'
 DEFAULT_STORAGE = 'nodes'
-VZRESTORE_BINARY = '/usr/bin/vzrestore'
 VZ_DEFAULT_IFACE = 'en4'
 
 VM_MIN_ID = 101
@@ -72,8 +71,7 @@ class VMHandler:
         """
 
         commands = [
-            '{} {} {} -storage={}'.format(
-                VZRESTORE_BINARY,
+            'vzrestore {} {} -storage={}'.format(
                 self.base_image,
                 id,
                 DEFAULT_STORAGE

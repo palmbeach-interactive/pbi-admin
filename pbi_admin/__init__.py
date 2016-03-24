@@ -49,6 +49,13 @@ def vm():
         required=True
     )
     parser.add_argument(
+        '-n', '--num',
+        dest='num_instances',
+        type=int,
+        default=1,
+        help='How many instances to create. Starting with "id" and incrementing. Only for "bulk_create" action.'
+    )
+    parser.add_argument(
         '-q', '--quiet',
         dest='quiet',
         help='No prompts',

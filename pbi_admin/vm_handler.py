@@ -9,7 +9,7 @@ from logging.config import fileConfig
 
 
 VZ_CONFIG_PATH = '/etc/vz/conf/'
-#VZ_CONFIG_PATH = '/Users/ohrstrom/Documents/Code/pbi/pbi-admin/dev/etc/'
+VZ_CONFIG_PATH = '/Users/ohrstrom/Documents/Code/pbi/pbi-admin/dev/etc/'
 DEFAULT_IMAGE = '/storage/nfs/shared/vm/images/debian-8-base.tar'
 DEFAULT_STORAGE = 'nodes'
 VZ_DEFAULT_IFACE = 'en4'
@@ -27,7 +27,7 @@ class VMHandler:
 
     def __init__(self, *args, **kwargs):
 
-        print kwargs
+        #print kwargs
         conf = kwargs.get('conf')
         self.vz_iface = conf.get('vz_iface', VZ_DEFAULT_IFACE)
         self.base_image = conf.get('base_image', DEFAULT_IMAGE)
@@ -43,9 +43,13 @@ class VMHandler:
         return netifaces.ifaddresses(self.vz_iface)[netifaces.AF_INET][0].get('addr').split('.')
 
 
-    def create(self, *args, **kwargs):
+    def create(self, override_id=None, *args, **kwargs):
 
-        id = kwargs.get('id')
+        if override_id:
+            id = override_id
+        else:
+            id = kwargs.get('id')
+
         if self._exists(id):
 
             if prompt('vm #{} exists. DO YOU WANT TO DESTROY IT???'.format(id), default='n').lower() == 'y':
@@ -117,4 +121,23 @@ class VMHandler:
             log.debug('running command: {}'.format(command))
             if not self.fake:
                 local(command)
+
+
+
+    def bulk_create(self, *args, **kwargs):
+
+        starting_id = kwargs.get('id')
+        num_instances = kwargs.get('num_instances')
+        self.quiet = True
+
+        for id in range(starting_id, starting_id + num_instances):
+            log.debug('check for existing containers: #{}'.format(id))
+            if self._exists(id):
+                raise VMHandlerException('vm #{} exists'.format(id))
+
+        for id in range(starting_id, starting_id + num_instances):
+            log.debug('create container: #{}'.format(id))
+            self.create(override_id=id, *args, **kwargs)
+
+
 

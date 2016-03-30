@@ -148,7 +148,7 @@ class VMHandler:
             commands = [
                 'pct restore {} {} -storage={}'.format(id, self.base_image, self.node_storage),
                 'pct set {id} -hostname "{hostname}"'.format(id=id, hostname=hostname),
-                'vzctl set {id} -swap 0'.format(id=id),
+                'pct set {id} -swap 0'.format(id=id),
             ]
             if self.network_type == 'ip':
                 # TODO: no hardcoded subnet

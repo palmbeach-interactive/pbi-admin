@@ -15,6 +15,8 @@ DEFAULT_IMAGE = '/storage/nfs/shared/vm/images/debian-8-base.tar'
 DEFAULT_STORAGE = 'nodes'
 DEFAULT_VIRTUALIZATION_TYPE = 'openvz'
 DEFAULT_NETWORK_TYPE = 'ip'
+DEFAULT_HOSTNAME_SUFFIX = 'auto'
+DEFAULT_HOSTNAME_PREFIX = 'node'
 VZ_DEFAULT_IFACE = 'en4'
 
 VM_MIN_ID = 101
@@ -37,6 +39,8 @@ class VMHandler:
         self.node_storage = conf.get('node_storage', DEFAULT_STORAGE)
         self.virtualization_type = conf.get('virtualization_type', DEFAULT_VIRTUALIZATION_TYPE)
         self.network_type = conf.get('network_type', DEFAULT_NETWORK_TYPE)
+        self.hostname_suffix = conf.get('hostname_suffix', DEFAULT_HOSTNAME_SUFFIX)
+        self.hostname_prefix = conf.get('hostname_prefix', DEFAULT_HOSTNAME_PREFIX)
         self.quiet = kwargs.get('quiet', False)
         self.fake = kwargs.get('fake', False)
 
@@ -88,10 +92,11 @@ class VMHandler:
                         'pct destroy {id}'.format(id=id),
                     ]
 
-            for command in commands:
+                for command in commands:
                     log.debug('running command: {}'.format(command))
                     if not self.fake:
                         local(command)
+
             else:
                 raise VMHandlerException('vm #{} exists'.format(id))
 
@@ -110,7 +115,16 @@ class VMHandler:
             id
         )
 
-        hostname = 'node{}'.format(id)
+
+        if not self.hostname_suffix:
+            hostname = '{}{}'.format(self.hostname_prefix, id)
+        elif self.hostname_suffix == 'auto':
+            import socket
+            hostname_suffix = socket.gethostname()
+            hostname = '{}{}.{}'.format(self.hostname_prefix, id, hostname_suffix)
+        else:
+            hostname = '{}{}.{}'.format(self.hostname_prefix, id, self.hostname_suffix)
+
 
         """
         vzrestore /tmp/slow_query.log 126 -storage=nodes
@@ -127,7 +141,6 @@ class VMHandler:
             commands = [
                 'vzrestore {} {} -storage={}'.format(self.base_image, id, self.node_storage),
                 'vzctl set {id} --hostname "{hostname}" --save'.format(id=id, hostname=hostname),
-                'vzctl set {id} -swap 0'.format(id=id),
                 'vzctl set {id} --ipadd {ip} --save'.format(id=id, ip=ip),
             ]
 
@@ -135,6 +148,7 @@ class VMHandler:
             commands = [
                 'pct restore {} {} -storage={}'.format(id, self.base_image, self.node_storage),
                 'pct set {id} -hostname "{hostname}"'.format(id=id, hostname=hostname),
+                'vzctl set {id} -swap 0'.format(id=id),
             ]
             if self.network_type == 'ip':
                 # TODO: no hardcoded subnet

@@ -8,10 +8,13 @@ from fabric.operations import prompt
 from logging.config import fileConfig
 
 
-VZ_CONFIG_PATH = '/etc/vz/conf/'
-VZ_CONFIG_PATH = '/Users/ohrstrom/Documents/Code/pbi/pbi-admin/dev/etc/'
+VZ_CONFIG_PATH = '/etc/pve/openvz/'
+#VZ_CONFIG_PATH = '/Users/ohrstrom/Documents/Code/pbi/pbi-admin/dev/etc/'
+LXC_CONFIG_PATH = '/etc/pve/lxc/'
 DEFAULT_IMAGE = '/storage/nfs/shared/vm/images/debian-8-base.tar'
 DEFAULT_STORAGE = 'nodes'
+DEFAULT_VIRTUALIZATION_TYPE = 'openvz'
+DEFAULT_NETWORK_TYPE = 'ip'
 VZ_DEFAULT_IFACE = 'en4'
 
 VM_MIN_ID = 101
@@ -32,15 +35,34 @@ class VMHandler:
         self.vz_iface = conf.get('vz_iface', VZ_DEFAULT_IFACE)
         self.base_image = conf.get('base_image', DEFAULT_IMAGE)
         self.node_storage = conf.get('node_storage', DEFAULT_STORAGE)
+        self.virtualization_type = conf.get('virtualization_type', DEFAULT_VIRTUALIZATION_TYPE)
+        self.network_type = conf.get('network_type', DEFAULT_NETWORK_TYPE)
         self.quiet = kwargs.get('quiet', False)
         self.fake = kwargs.get('fake', False)
 
     def _exists(self, id):
 
-        return os.path.isfile(os.path.join(VZ_CONFIG_PATH, '{}.conf'.format(id)))
+        if self.virtualization_type == 'openvz':
+            return os.path.isfile(os.path.join(VZ_CONFIG_PATH, '{}.conf'.format(id)))
+
+        if self.virtualization_type == 'lxc':
+            return os.path.isfile(os.path.join(LXC_CONFIG_PATH, '{}.conf'.format(id)))
 
     def _base_ip(self):
         return netifaces.ifaddresses(self.vz_iface)[netifaces.AF_INET][0].get('addr').split('.')
+
+    def _base_mac(self, id):
+
+        base_ip = self._base_ip()
+        host_bits = str(base_ip[-1]).zfill(4)
+        node_bits = str(id).zfill(4)
+
+        return '00:00:{}:{}:{}:{}'.format(
+            host_bits[0:2],
+            host_bits[2:4],
+            node_bits[0:2],
+            node_bits[2:4]
+        )
 
 
     def create(self, override_id=None, *args, **kwargs):
@@ -54,12 +76,19 @@ class VMHandler:
 
             if prompt('vm #{} exists. DO YOU WANT TO DESTROY IT???'.format(id), default='n').lower() == 'y':
 
-                commands = [
-                    'vzctl stop {id}'.format(id=id),
-                    'vzctl destroy {id}'.format(id=id),
-                ]
+                if self.virtualization_type == 'openvz':
+                    commands = [
+                        'vzctl stop {id}'.format(id=id),
+                        'vzctl destroy {id}'.format(id=id),
+                    ]
 
-                for command in commands:
+                if self.virtualization_type == 'lxc':
+                    commands = [
+                        'pct stop {id}'.format(id=id),
+                        'pct destroy {id}'.format(id=id),
+                    ]
+
+            for command in commands:
                     log.debug('running command: {}'.format(command))
                     if not self.fake:
                         local(command)
@@ -92,30 +121,66 @@ class VMHandler:
         vzctl enter 126
         """
 
-        commands = [
-            'vzrestore {} {} -storage={}'.format(self.base_image, id, self.node_storage),
-            'vzctl set {id} --hostname "{hostname}" --save'.format(id=id, hostname=hostname),
-            'vzctl set {id} --ipdel all --save'.format(id=id),
-            'vzctl set {id} --ipadd {ip} --save'.format(id=id, ip=ip),
-        ]
+        commands = []
+
+        if self.virtualization_type == 'openvz':
+            commands = [
+                'vzrestore {} {} -storage={}'.format(self.base_image, id, self.node_storage),
+                'vzctl set {id} --hostname "{hostname}" --save'.format(id=id, hostname=hostname),
+                'vzctl set {id} -swap 0'.format(id=id),
+                'vzctl set {id} --ipadd {ip} --save'.format(id=id, ip=ip),
+            ]
+
+        if self.virtualization_type == 'lxc':
+            commands = [
+                'pct restore {} {} -storage={}'.format(id, self.base_image, self.node_storage),
+                'pct set {id} -hostname "{hostname}"'.format(id=id, hostname=hostname),
+            ]
+            if self.network_type == 'ip':
+                # TODO: no hardcoded subnet
+                commands.append(
+                    'pct set {id} -net0 name=eth0,bridge=vmbr0,ip={ip}/24,type=veth'.format(id=id, ip=ip)
+                )
+            if self.network_type == 'mac':
+                """
+                pct set 203 -net0 name=eth0,bridge=vmbr0,hwaddr=00:00:00:33:02:03,ip=dhcp,ip6=dhcp,type=veth
+                """
+                mac = self._base_mac(id)
+                commands.append(
+                    'pct set {id} -net0 name=eth0,bridge=vmbr0,hwaddr={hwaddr},ip=dhcp,ip6=dhcp,type=veth'.format(id=id, hwaddr=mac)
+                )
 
         if not self.quiet:
 
             if prompt('enable on-boot?', default='n').lower() == 'y':
-                commands.append(
-                    'vzctl set {id} --onboot yes --save'.format(id=id),
-                )
+                if self.virtualization_type == 'openvz':
+                    commands.append(
+                        'vzctl set {id} --onboot yes --save'.format(id=id)
+                    )
+                if self.virtualization_type == 'lxc':
+                    commands.append(
+                        'pct set {id} -onboot 1'.format(id=id)
+                    )
 
             if prompt('start container?', default='n').lower() == 'y':
-                commands.append(
-                    'vzctl start {id}'.format(id=id),
-                )
+                if self.virtualization_type == 'openvz':
+                    commands.append(
+                        'vzctl start {id}'.format(id=id)
+                    )
+                if self.virtualization_type == 'lxc':
+                    commands.append(
+                        'pct start {id}'.format(id=id)
+                    )
 
             if prompt('open console?', default='n').lower() == 'y':
-                commands.append(
-                    'vzctl enter {id}'.format(id=id),
-                )
-
+                if self.virtualization_type == 'openvz':
+                    commands.append(
+                        'vzctl enter {id}'.format(id=id)
+                    )
+                if self.virtualization_type == 'lxc':
+                    commands.append(
+                        'pct enter {id}'.format(id=id)
+                    )
 
         for command in commands:
             log.debug('running command: {}'.format(command))

@@ -3,6 +3,15 @@ pbi.io - CLI admin tools
 
 
 
+Prerequisites
+-------------
+
+Usually our systems have these packages installed by default. On a bare machine you will have to install:
+
+    apt-get install python-setuptools git autoconf build-essential python-dev
+    easy_install pip
+
+
 Installation
 ------------
 

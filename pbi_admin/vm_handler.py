@@ -157,11 +157,11 @@ class VMHandler:
                 )
             if self.network_type == 'mac':
                 """
-                pct set 203 -net0 name=eth0,bridge=vmbr0,hwaddr=00:00:00:33:02:03,ip=dhcp,ip6=dhcp,type=veth
+                pct set 203 -net0 name=eth0,bridge=vmbr0,hwaddr=00:00:00:33:02:03,ip=dhcp,type=veth
                 """
                 mac = self._base_mac(id)
                 commands.append(
-                    'pct set {id} -net0 name=eth0,bridge=vmbr0,hwaddr={hwaddr},ip=dhcp,ip6=dhcp,type=veth'.format(id=id, hwaddr=mac)
+                    'pct set {id} -net0 name=eth0,bridge=vmbr0,hwaddr={hwaddr},ip=dhcp,type=veth'.format(id=id, hwaddr=mac)
                 )
 
         if not self.quiet:
